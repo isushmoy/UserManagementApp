@@ -1,0 +1,110 @@
+﻿@using Microsoft.AspNetCore.Identity;
+@using UserManagementApp.Models;
+@model IEnumerable<ApplicationUser>
+
+@{
+    ViewData["Title"] = "User Management";
+}
+
+<h1>@ViewData["Title"]</h1>
+
+<form id="manageUsersForm" asp-action="ManageUsers" method="post">
+    <div class="text-end my-3">
+        <button type="button" name="action" value="Block" class="btn btn-danger" onclick="submitForm('Block')">Block</button>
+        <button type="button" name="action" value="Unblock" class="btn btn-success" onclick="submitForm('Unblock')">
+            <i class="bi bi-unlock-fill"></i>
+        </button>
+        <button type="button" name="action" value="Delete" class="btn btn-secondary" onclick="submitForm('Delete')">
+            <i class="bi bi-trash-fill"></i>
+        </button>
+    </div>
+    <table class="table">
+        <thead>
+            <tr>
+                <th><input type="checkbox" id="selectAll" /></th>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Status</th>
+                <th>Last Login Time</th>
+                <th>Registration Time</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var user in Model)
+            {
+                <tr data-user-id="@user.Id">
+                    <td><input type="checkbox" name="userIds" value="@user.Id" /></td>
+                    <td>@user.Id</td>
+                    <td>@user.Name</td>
+                    <td>@user.Email</td>
+                    <td class="user-status">
+                        @{
+                            if (user.LockoutEnabled && user.LockoutEnd > DateTimeOffset.UtcNow)
+                            {
+                                <span class="text-danger">Blocked</span>
+                            }
+                            else
+                            {
+                                <span class="text-success">Active</span>
+                            }
+                        }
+                    </td>
+                    <td>@user.LastLoginTime?.ToString("g")</td>
+                    <td>@user.RegistrationTime.ToString("g")</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</form>
+
+@section Scripts {
+    <script>
+        document.getElementById('selectAll').onclick = function () {
+            const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+            checkboxes.forEach(checkbox => checkbox.checked = this.checked);
+        };
+
+        function submitForm(action) {
+            const form = document.getElementById('manageUsersForm');
+            const formData = new FormData(form);
+            formData.append('action', action);
+
+            fetch('@Url.Action("ManageUsers", "UserManagement")', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    if (data.logout) {
+                        window.location.href = '/Identity/Account/Login';
+                    } else {
+                        updateStatuses(action);
+                    }
+                } else {
+                    alert('An error occurred.');
+                }
+            })
+            .catch(error => console.error('Error:', error));
+        }
+
+        function updateStatuses(action) {
+            const checkboxes = document.querySelectorAll('input[name="userIds"]:checked');
+            checkboxes.forEach(checkbox => {
+                const row = checkbox.closest('tr');
+                const statusCell = row.querySelector('.user-status');
+                if (action === 'Block') {
+                    statusCell.innerHTML = '<span class="text-danger">Blocked</span>';
+                } else if (action === 'Unblock') {
+                    statusCell.innerHTML = '<span class="text-success">Active</span>';
+                } else if (action === 'Delete') {
+                    row.remove();
+                }
+            });
+        }
+    </script>
+}
